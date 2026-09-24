@@ -1,0 +1,28 @@
+## .NET & Build outputs
+bin/
+obj/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+## Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
+*.tfvars
+*.tfvars.json
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraform.lock.hcl
+
+## Deploy zip
+infra/*.zip
+
+## Visual Studio & VS Code
+.vs/
+.vscode/

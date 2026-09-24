@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Matador.ConsoleDemo/Matador.ConsoleDemo.csproj" />
+    <Project Path="src/Matador.Core/Matador.Core.csproj" />
+    <Project Path="src/Matador.Web/Matador.Web.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Matador.Core.Tests/Matador.Core.Tests.csproj" />
+  </Folder>
+</Solution>

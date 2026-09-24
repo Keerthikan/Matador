@@ -1,0 +1,6 @@
+@Matador.Web_HostAddress = http://localhost:5117
+
+GET {{Matador.Web_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
