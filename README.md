@@ -6,9 +6,15 @@ En moderne .NET implementation af det klassiske danske brætspil **Matador**, ko
 
 ## 📸 Screenshots
 
+### Desktop & Multiplayer Gameplay
 | 🎮 Spillebræt i Real-tid | 🏠 Multiplayer Lobby |
 | :---: | :---: |
 | ![Spilleplade](docs/images/gameboard.png) | ![Lobby](docs/images/lobby.png) |
+
+### Forhandling, Handel & Mobilvisning
+| 📱 Responsiv Mobilvisning | 🤝 Forhandling & Handelstilbud | 💼 Afgiv Tilbud (Modal) |
+| :---: | :---: | :---: |
+| ![Mobil Visning](docs/images/mobile.png) | ![Handel og Leje](docs/images/trade.png) | ![Handelsmodal](docs/images/trade_modal.png) |
 
 ---
 
