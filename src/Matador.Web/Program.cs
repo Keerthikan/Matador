@@ -24,6 +24,31 @@ app.UseDefaultFiles();
 app.UseStaticFiles();
 
 // ==========================================
+// VERSION & STATUS ENDPOINT
+// ==========================================
+app.MapGet("/version", () =>
+{
+    var assembly = typeof(Program).Assembly;
+    var version = assembly.GetName().Version?.ToString() ?? "1.0.0";
+    var informationalVersion = System.Reflection.CustomAttributeExtensions
+        .GetCustomAttribute<System.Reflection.AssemblyInformationalVersionAttribute>(assembly)?.InformationalVersion ?? version;
+    
+    var appVersion = Environment.GetEnvironmentVariable("APP_VERSION") ?? informationalVersion;
+    var commitSha = Environment.GetEnvironmentVariable("COMMIT_SHA") ?? "local-dev";
+    var buildTime = Environment.GetEnvironmentVariable("BUILD_TIMESTAMP") ?? DateTime.UtcNow.ToString("u");
+    var environment = app.Environment.EnvironmentName;
+
+    return Results.Ok(new
+    {
+        version = appVersion,
+        commit = commitSha,
+        buildTime = buildTime,
+        environment = environment,
+        status = "Healthy"
+    });
+});
+
+// ==========================================
 // RUM & MULTIPLAYER LOBBY ENDPOINTS
 // ==========================================
 

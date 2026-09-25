@@ -1285,6 +1285,34 @@ document.getElementById('btn-send-trade').addEventListener('click', async () => 
   fetchGameState();
 });
 
+// Hent og vis deployet version fra /version endpoint
+async function loadAppVersion() {
+  try {
+    const res = await fetch('/version');
+    if (res.ok) {
+      const data = await res.json();
+      const versionLabel = data.version.startsWith('v') ? data.version : `v${data.version}`;
+      const shortCommit = data.commit && data.commit.length >= 7 ? ` (${data.commit.substring(0, 7)})` : '';
+      const text = `${versionLabel}${shortCommit}`;
+      
+      const badge1 = document.getElementById('lobby-version-badge');
+      const badge2 = document.getElementById('app-version-badge');
+      if (badge1) {
+        badge1.innerText = text;
+        badge1.title = `Bygget: ${data.buildTime || 'N/A'} (${data.environment || 'Production'})`;
+      }
+      if (badge2) {
+        badge2.innerText = text;
+        badge2.title = `Bygget: ${data.buildTime || 'N/A'} (${data.environment || 'Production'})`;
+      }
+    }
+  } catch {
+    // Stille fallback hvis offline
+  }
+}
+
+loadAppVersion();
+
 // Hvis vi allerede har en session gemt, start automatisk opkobling
 if (mySession.roomCode && mySession.token) {
   startPolling();

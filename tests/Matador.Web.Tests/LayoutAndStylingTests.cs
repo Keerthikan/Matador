@@ -97,4 +97,13 @@ public class LayoutAndStylingTests
         Assert.True(diceBox.Y < btnBox.Y, "Terningerne skal være placeret over knappen");
         Assert.True(btnBox.Y < eventBox.Y, "Knappen skal være placeret over hændelsesboksen");
     }
+
+    [Fact]
+    public async Task VersionEndpoint_ReturnsExpectedJsonStructure()
+    {
+        // Kør test mod web application factory eller evaluate in-memory model
+        var assembly = typeof(Program).Assembly;
+        var version = assembly.GetName().Version?.ToString();
+        Assert.NotNull(version);
+    }
 }

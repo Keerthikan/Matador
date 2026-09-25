@@ -8,6 +8,11 @@ on:
       - 'v*'
   workflow_dispatch:
     inputs:
+      version_override:
+        description: 'Vælg version der skal deployes (f.eks. 1.2.0 eller tag/commit). Efterlad tom for auto.'
+        required: false
+        default: ''
+        type: string
       target_env:
         description: 'Miljø til deployment'
         required: true
@@ -25,9 +30,30 @@ jobs:
   test:
     name: Run Unit & Layout Tests
     runs-on: ubuntu-latest
+    outputs:
+      computed_version: ${{ steps.version_calc.outputs.version }}
+      commit_sha: ${{ steps.version_calc.outputs.commit_sha }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Compute Target Version
+        id: version_calc
+        run: |
+          # 1. Hvis manuelt angivet i workflow_dispatch
+          if [ -n "${{ github.event.inputs.version_override }}" ]; then
+            APP_VER="${{ github.event.inputs.version_override }}"
+          # 2. Hvis triggered af tag (f.eks. refs/tags/v1.2.0)
+          elif [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            APP_VER="${GITHUB_REF_NAME}"
+          # 3. Standard fallback med run number
+          else
+            APP_VER="1.0.${{ github.run_number }}"
+          fi
+
+          echo "version=${APP_VER}" >> $GITHUB_OUTPUT
+          echo "commit_sha=${{ github.sha }}" >> $GITHUB_OUTPUT
+          echo "Selected Target Version: ${APP_VER}"
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
@@ -37,8 +63,11 @@ jobs:
       - name: Restore dependencies
         run: dotnet restore Matador.slnx
 
-      - name: Build solution
-        run: dotnet build Matador.slnx --configuration Release --no-restore
+      - name: Build solution with Version metadata
+        run: |
+          dotnet build Matador.slnx --configuration Release --no-restore \
+            -p:Version=${{ steps.version_calc.outputs.version }} \
+            -p:InformationalVersion="${{ steps.version_calc.outputs.version }}+${{ github.sha }}"
 
       - name: Install Playwright Browsers & Dependencies
         run: |
@@ -68,8 +97,12 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Confirm Deployment & Status
+      - name: Confirm Deployment & Version Status
         run: |
-          echo "Alle unit- og layout/styling-tests passerede med succes!"
-          echo "Deploying version: ${{ github.ref_name }}"
-          echo "Production URL: https://matador-dt9v.onrender.com"
+          echo "=========================================================="
+          echo "✅ Alle unit- og layout/styling-tests passerede med succes!"
+          echo "🚀 Version til udrulning: ${{ needs.test.outputs.computed_version }}"
+          echo "🔗 Commit SHA: ${{ needs.test.outputs.commit_sha }}"
+          echo "🌐 Miljø: ${{ github.event.inputs.target_env || 'Production' }}"
+          echo "🌐 URL: https://matador-dt9v.onrender.com"
+          echo "=========================================================="

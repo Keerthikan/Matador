@@ -14,7 +14,10 @@
   <!-- 1. VELKOMST- & RUM-VÆLGER (LOGIN) -->
   <div id="lobby-modal" class="lobby-overlay">
     <div class="lobby-box">
-      <h1 class="game-title" style="font-size: 2.2rem; text-align: center;">MATADOR</h1>
+      <div style="display: flex; align-items: baseline; justify-content: center; gap: 8px;">
+        <h1 class="game-title" style="font-size: 2.2rem; margin: 0;">MATADOR</h1>
+        <span class="version-tag" id="lobby-version-badge">v...</span>
+      </div>
       <p class="lobby-desc">Spil det klassiske danske brætspil online mod dine venner på hver jeres enhed!</p>
       
       <div class="form-group">
@@ -79,6 +82,7 @@
       <div class="logo-area">
         <h1 class="game-title">MATADOR</h1>
         <span class="game-subtitle" id="top-room-badge">Rum: ----</span>
+        <span class="version-tag" id="app-version-badge">v...</span>
       </div>
       <div class="header-actions">
         <span id="my-identity-badge" class="identity-badge">Du er: ...</span>
