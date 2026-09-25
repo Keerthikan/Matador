@@ -36,9 +36,15 @@ En moderne .NET implementation af det klassiske danske brætspil **Matador**, ko
   - Dynamisk bevægelse af spillebrikker med uret rundt om pladens 4 ydersider.
   - Tydelig visualisering af ejerskab med diskret spillertoning af grundene og ejer-cirkler med spillerens brik og farve i øverste hjørne.
   - Asymmetrisk leje-opkrævning: Kreditor skal selv nå at opkræve lejen inden næste terningekast!
+- **🤝 Fuld Multi-Property Byttehandel (Barter)**:
+  - Byt flere grunde mod flere grunde ($A, B, C \leftrightarrow D$) eller inkludér Fængsels-Frikort.
+  - Fleksibel kontantbalance: Tilbyd ekstra penge til modspilleren ($+$) eller kræv kontanter oveni handlen ($-$).
+  - Validering af regler (bygninger skal sælges før grundbytte).
+  - Overskuelig to-kolonnet forhandlingsmodal med real-tids status for modtagne byttetilbud.
 - **Multiplayer, Solo & AI Botter**:
   - Spil alene mod 1-5 intelligente computer-modstandere (f.eks. *Robot Mads*, *Onkel Joakim*, *Baron von Guld*).
-  - AI'erne kaster terninger, køber grunde strategisk med budgetbuffer, bygger huse, betaler ud af fængsel, afgiver stemmer og evaluerer handelstilbud.
+  - **Avanceret AI-handelslogik**: Botterne beskytter egne monopoler, jager aktivt manglende gader for at færdiggøre monopoler, blokerer modstanderes monopoler og evaluerer den samlede økonomiske værdi før accept.
+  - AI'erne kaster terninger, køber grunde med budgetbuffer, bygger huse, betaler ud af fængsel og afgiver stemmer.
   - Opret eller deltag i spilrum via 4-cifrede koder med venner.
   - Vært/spiller-roller med sessionsstyring og mulighed for at tilføje/fjerne botter eller forlade spil.
 - **Web App**:
