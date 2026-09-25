@@ -1,0 +1,9 @@
+**/.git
+**/.vs
+**/bin
+**/obj
+**/.idea
+README.md
+tests/
+infra/
+docs/
