@@ -121,10 +121,7 @@ public class GameEngine
 
     public TradeOffer ProposeTrade(Player from, Player to, OwnableSpace property, int price)
     {
-        var offer = new TradeOffer(_nextTradeId++, from, to, property, price);
-        TradeOffers.Add(offer);
-        Log($"💼 {from.Name} tilbyder {to.Name} at købe {property.Name} for kr. {price:N0}.");
-        return offer;
+        return ProposeMultiTrade(from, to, offeredProperties: null, requestedProperties: new[] { property }, cashAmount: price);
     }
 
     public TradeOffer ProposeJailCardTrade(Player from, Player to, int price)
@@ -135,61 +132,145 @@ public class GameEngine
         return offer;
     }
 
+    public TradeOffer ProposeMultiTrade(
+        Player from,
+        Player to,
+        IEnumerable<OwnableSpace>? offeredProperties,
+        IEnumerable<OwnableSpace>? requestedProperties,
+        int cashAmount,
+        int offeredJailCards = 0,
+        int requestedJailCards = 0)
+    {
+        var offer = new TradeOffer(_nextTradeId++, from, to, offeredProperties, requestedProperties, cashAmount, offeredJailCards, requestedJailCards);
+        TradeOffers.Add(offer);
+
+        var offeredNames = offer.OfferedProperties.Select(p => p.Name).ToList();
+        if (offer.OfferedJailCards > 0) offeredNames.Add($"{offer.OfferedJailCards}x Frikort");
+        var reqNames = offer.RequestedProperties.Select(p => p.Name).ToList();
+        if (offer.RequestedJailCards > 0) reqNames.Add($"{offer.RequestedJailCards}x Frikort");
+
+        string offerStr = offeredNames.Count > 0 ? string.Join(", ", offeredNames) : "Ingen grunde";
+        string reqStr = reqNames.Count > 0 ? string.Join(", ", reqNames) : "Ingen grunde";
+        string moneyStr = offer.CashAmount > 0 
+            ? $" + kr. {offer.CashAmount:N0}" 
+            : (offer.CashAmount < 0 ? $" (og kræver kr. {-offer.CashAmount:N0} oveni)" : "");
+
+        Log($"💼 BYTTETILBUD: {from.Name} tilbyder [{offerStr}]{moneyStr} i bytte for {to.Name}s [{reqStr}].");
+        return offer;
+    }
+
     public bool RespondToTrade(int tradeId, bool accept)
     {
         var offer = TradeOffers.FirstOrDefault(t => t.Id == tradeId && t.Status == TradeStatus.Pending);
         if (offer == null) return false;
 
-        string itemName = offer.IsJailCardTrade ? "Frikort til fængsel" : offer.Property?.Name ?? "Ejendom";
-
         if (!accept)
         {
             offer.Status = TradeStatus.Rejected;
-            Log($"❌ {offer.ToPlayer.Name} afviste tilbuddet fra {offer.FromPlayer.Name} om {itemName}.");
+            Log($"❌ {offer.ToPlayer.Name} afviste byttetilbuddet fra {offer.FromPlayer.Name}.");
             return true;
         }
 
-        // Tjek om køberen har pengene
-        if (offer.FromPlayer.Balance < offer.Price)
+        // Tjek ejerskab af tilbudte grunde
+        foreach (var prop in offer.OfferedProperties)
         {
-            Log($"Handel kunne ikke gennemføres: {offer.FromPlayer.Name} har ikke råd.");
-            return false;
-        }
-
-        if (offer.IsJailCardTrade)
-        {
-            if (offer.ToPlayer.GetOutOfJailCards <= 0)
+            if (prop.Owner != offer.FromPlayer)
             {
-                Log($"Handel kunne ikke gennemføres: {offer.ToPlayer.Name} har ikke noget frikort længere.");
+                Log($"Byttehandel annulleret: {offer.FromPlayer.Name} ejer ikke længere {prop.Name}.");
+                offer.Status = TradeStatus.Rejected;
                 return false;
             }
-
-            // Gennemfør frikort-handel
-            offer.FromPlayer.DeductMoney(offer.Price);
-            offer.ToPlayer.AddMoney(offer.Price);
-            offer.ToPlayer.GetOutOfJailCards--;
-            offer.FromPlayer.GetOutOfJailCards++;
-            offer.Status = TradeStatus.Accepted;
-
-            Log($"🤝 HANDEL GENNEMFØRT! {offer.FromPlayer.Name} købte et Fængsels-Frikort af {offer.ToPlayer.Name} for kr. {offer.Price:N0}!");
-            return true;
+            if (prop is StreetSpace st && st.HouseCount > 0)
+            {
+                Log($"Byttehandel annulleret: {prop.Name} har huse og kan ikke byttes før de er solgt.");
+                offer.Status = TradeStatus.Rejected;
+                return false;
+            }
         }
 
-        if (offer.Property == null || offer.Property.Owner != offer.ToPlayer)
+        // Tjek ejerskab af efterspurgte grunde
+        foreach (var prop in offer.RequestedProperties)
         {
-            Log($"Handel kunne ikke gennemføres: {offer.ToPlayer.Name} ejer ikke længere {itemName}.");
+            if (prop.Owner != offer.ToPlayer)
+            {
+                Log($"Byttehandel annulleret: {offer.ToPlayer.Name} ejer ikke længere {prop.Name}.");
+                offer.Status = TradeStatus.Rejected;
+                return false;
+            }
+            if (prop is StreetSpace st && st.HouseCount > 0)
+            {
+                Log($"Byttehandel annulleret: {prop.Name} har huse og kan ikke byttes før de er solgt.");
+                offer.Status = TradeStatus.Rejected;
+                return false;
+            }
+        }
+
+        // Tjek frikort
+        if (offer.OfferedJailCards > offer.FromPlayer.GetOutOfJailCards ||
+            offer.RequestedJailCards > offer.ToPlayer.GetOutOfJailCards)
+        {
+            Log("Byttehandel annulleret: Utilstrækkelige fængselskort.");
+            offer.Status = TradeStatus.Rejected;
             return false;
         }
 
-        // Gennemfør grund-handel
-        offer.FromPlayer.DeductMoney(offer.Price);
-        offer.ToPlayer.AddMoney(offer.Price);
-        offer.ToPlayer.OwnedProperties.Remove(offer.Property);
-        offer.Property.Owner = offer.FromPlayer;
-        offer.FromPlayer.OwnedProperties.Add(offer.Property);
-        offer.Status = TradeStatus.Accepted;
+        // Tjek kontantlikviditet
+        if (offer.CashAmount > 0 && offer.FromPlayer.Balance < offer.CashAmount)
+        {
+            Log($"Byttehandel annulleret: {offer.FromPlayer.Name} har ikke kr. {offer.CashAmount:N0}.");
+            offer.Status = TradeStatus.Rejected;
+            return false;
+        }
+        if (offer.CashAmount < 0 && offer.ToPlayer.Balance < -offer.CashAmount)
+        {
+            Log($"Byttehandel annulleret: {offer.ToPlayer.Name} har ikke kr. {-offer.CashAmount:N0}.");
+            offer.Status = TradeStatus.Rejected;
+            return false;
+        }
 
-        Log($"🤝 HANDEL GENNEMFØRT! {offer.FromPlayer.Name} købte {offer.Property.Name} af {offer.ToPlayer.Name} for kr. {offer.Price:N0}!");
+        // Overfør kontanter
+        if (offer.CashAmount > 0)
+        {
+            offer.FromPlayer.DeductMoney(offer.CashAmount);
+            offer.ToPlayer.AddMoney(offer.CashAmount);
+        }
+        else if (offer.CashAmount < 0)
+        {
+            int absCash = -offer.CashAmount;
+            offer.ToPlayer.DeductMoney(absCash);
+            offer.FromPlayer.AddMoney(absCash);
+        }
+
+        // Overfør frikort
+        if (offer.OfferedJailCards > 0)
+        {
+            offer.FromPlayer.GetOutOfJailCards -= offer.OfferedJailCards;
+            offer.ToPlayer.GetOutOfJailCards += offer.OfferedJailCards;
+        }
+        if (offer.RequestedJailCards > 0)
+        {
+            offer.ToPlayer.GetOutOfJailCards -= offer.RequestedJailCards;
+            offer.FromPlayer.GetOutOfJailCards += offer.RequestedJailCards;
+        }
+
+        // Overfør tilbudte grunde (FromPlayer -> ToPlayer)
+        foreach (var prop in offer.OfferedProperties)
+        {
+            offer.FromPlayer.OwnedProperties.Remove(prop);
+            prop.Owner = offer.ToPlayer;
+            offer.ToPlayer.OwnedProperties.Add(prop);
+        }
+
+        // Overfør efterspurgte grunde (ToPlayer -> FromPlayer)
+        foreach (var prop in offer.RequestedProperties)
+        {
+            offer.ToPlayer.OwnedProperties.Remove(prop);
+            prop.Owner = offer.FromPlayer;
+            offer.FromPlayer.OwnedProperties.Add(prop);
+        }
+
+        offer.Status = TradeStatus.Accepted;
+        Log($"🤝 HANDEL GENNEMFØRT! {offer.FromPlayer.Name} og {offer.ToPlayer.Name} gennemførte byttehandlen!");
         return true;
     }
 

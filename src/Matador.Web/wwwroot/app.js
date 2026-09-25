@@ -613,10 +613,31 @@ function renderTrades() {
   currentGameState.pendingTrades.forEach(t => {
     const div = document.createElement('div');
     div.className = 'trade-offer-item';
+
+    const offeredItems = (t.offeredProperties || []).map(p => p.name);
+    if (t.offeredJailCards > 0) offeredItems.push(`${t.offeredJailCards}x Frikort`);
+    const offeredStr = offeredItems.length > 0 ? offeredItems.join(', ') : 'Ingen grunde';
+
+    const reqItems = (t.requestedProperties || []).map(p => p.name);
+    if (t.requestedJailCards > 0) reqItems.push(`${t.requestedJailCards}x Frikort`);
+    const reqStr = reqItems.length > 0 ? reqItems.join(', ') : (t.propertyName || 'Ingen grunde');
+
+    let cashText = '';
+    if (t.cashAmount > 0) {
+      cashText = ` + betaler dig <strong>kr. ${t.cashAmount.toLocaleString('da-DK')}</strong>`;
+    } else if (t.cashAmount < 0) {
+      cashText = ` (kræver <strong>kr. ${(-t.cashAmount).toLocaleString('da-DK')}</strong> af dig oveni)`;
+    }
+
     div.innerHTML = `
-      <div><strong>${t.fromPlayer}</strong> vil købe <strong>${t.propertyName}</strong> af dig for <strong>kr. ${t.price.toLocaleString('da-DK')}</strong>.</div>
-      <div class="trade-actions">
-        <button class="btn-success" style="padding: 4px 10px; font-size: 0.75rem;" onclick="respondTrade(${t.id}, true)">Accepter</button>
+      <div style="font-size: 0.8rem; line-height: 1.35;">
+        <strong>${t.fromPlayer}</strong> tilbyder: 
+        <div style="color: #3fb950; margin: 2px 0;">🎁 [${offeredStr}]${cashText}</div>
+        til gengæld for dine:
+        <div style="color: var(--accent-gold); margin: 2px 0;">🏠 [${reqStr}]</div>
+      </div>
+      <div class="trade-actions" style="margin-top: 6px;">
+        <button class="btn-success" style="padding: 4px 10px; font-size: 0.75rem;" onclick="respondTrade(${t.id}, true)">Accepter Bytte</button>
         <button class="btn-danger" style="padding: 4px 10px; font-size: 0.75rem;" onclick="respondTrade(${t.id}, false)">Afvis</button>
       </div>
     `;
@@ -914,7 +935,12 @@ window.buyHouseFromModal = async function(spaceIndex) {
 };
 const tradeModal = document.getElementById('trade-modal');
 const sellerSelect = document.getElementById('trade-seller-select');
-const propSelect = document.getElementById('trade-property-select');
+const myPropsContainer = document.getElementById('trade-my-props');
+const targetPropsContainer = document.getElementById('trade-target-props');
+const giveJailCardCheckbox = document.getElementById('trade-give-jailcard');
+const wantJailCardCheckbox = document.getElementById('trade-want-jailcard');
+const tradeCashType = document.getElementById('trade-cash-type');
+const tradeCashAmount = document.getElementById('trade-cash-amount');
 
 document.getElementById('btn-open-trade').addEventListener('click', () => {
   if (!currentGameState) return;
@@ -925,80 +951,130 @@ document.getElementById('btn-cancel-trade').addEventListener('click', () => {
   tradeModal.classList.add('hidden');
 });
 
-function openTradeModal() {
+function openTradeModal(preselectedTargetPropIndex = null, preselectedSellerId = null) {
   const myP = currentGameState.players.find(p => p.id === currentGameState.myPlayerId);
   if (!myP) return;
 
-  document.getElementById('trade-from-name').value = `${myP.name} (kr. ${myP.balance.toLocaleString('da-DK')})`;
-
+  // 1. Udfyld modspillere
   sellerSelect.innerHTML = '';
-  currentGameState.players.filter(p => p.id !== myP.id && !p.isBankrupt).forEach(other => {
+  const otherPlayers = currentGameState.players.filter(p => p.id !== myP.id && !p.isBankrupt);
+  
+  if (otherPlayers.length === 0) {
+    alert('Der er ingen andre aktive modspillere at handle med.');
+    return;
+  }
+
+  otherPlayers.forEach(other => {
     const opt = document.createElement('option');
     opt.value = other.id;
-    opt.innerText = `${other.name} (${other.ownedCount} ejendomme)`;
+    opt.innerText = `${other.name} (${other.ownedCount} ejendomme, kr. ${other.balance.toLocaleString('da-DK')})`;
     sellerSelect.appendChild(opt);
   });
 
-  updateSellerProperties();
-  sellerSelect.onchange = updateSellerProperties;
+  if (preselectedSellerId) {
+    sellerSelect.value = preselectedSellerId;
+  }
+
+  // 2. Vis mine grunde (Gives)
+  myPropsContainer.innerHTML = '';
+  if (myP.ownedProperties && myP.ownedProperties.length > 0) {
+    myP.ownedProperties.forEach(prop => {
+      const label = document.createElement('label');
+      label.style.display = 'flex';
+      label.style.alignItems = 'center';
+      label.style.gap = '6px';
+      label.style.cursor = 'pointer';
+      label.innerHTML = `
+        <input type="checkbox" class="trade-my-prop-checkbox" value="${prop.index}" />
+        <span>${prop.name} (kr. ${prop.price.toLocaleString('da-DK')})</span>
+      `;
+      myPropsContainer.appendChild(label);
+    });
+  } else {
+    myPropsContainer.innerHTML = '<span class="placeholder-text" style="font-size: 0.75rem;">Du ejer ingen grunde.</span>';
+  }
+
+  // Frikort hos mig
+  if (giveJailCardCheckbox) {
+    giveJailCardCheckbox.checked = false;
+    giveJailCardCheckbox.disabled = (myP.getOutOfJailCards || 0) <= 0;
+  }
+
+  // Nulstil kontanter
+  tradeCashAmount.value = 0;
+  tradeCashType.value = 'give';
+
+  // 3. Opdater modspillerens grunde
+  updateTargetPlayerTradeItems(preselectedTargetPropIndex);
+  sellerSelect.onchange = () => updateTargetPlayerTradeItems();
+
   tradeModal.classList.remove('hidden');
 }
 
 function openTradeModalWithProperty(propIndex, sellerId) {
-  openTradeModal();
-  sellerSelect.value = sellerId;
-  updateSellerProperties();
-  propSelect.value = propIndex;
+  openTradeModal(propIndex, sellerId);
 }
 
-function updateSellerProperties() {
-  const sellerId = sellerSelect.value;
-  const seller = currentGameState.players.find(p => p.id === sellerId);
-  propSelect.innerHTML = '';
+function updateTargetPlayerTradeItems(preselectedPropIndex = null) {
+  const targetId = sellerSelect.value;
+  const targetPlayer = currentGameState.players.find(p => p.id === targetId);
+  targetPropsContainer.innerHTML = '';
 
-  let hasItems = false;
-
-  if (seller && seller.getOutOfJailCards > 0) {
-    const opt = document.createElement('option');
-    opt.value = "jail_card";
-    opt.innerText = `🎟️ Fængsels-Frikort (${seller.getOutOfJailCards} stk haves)`;
-    propSelect.appendChild(opt);
-    hasItems = true;
-  }
-
-  if (seller && seller.ownedProperties && seller.ownedProperties.length > 0) {
-    seller.ownedProperties.forEach(p => {
-      const opt = document.createElement('option');
-      opt.value = p.index;
-      opt.innerText = `${p.name} (Pris: kr. ${p.price.toLocaleString('da-DK')})`;
-      propSelect.appendChild(opt);
-      hasItems = true;
+  if (targetPlayer && targetPlayer.ownedProperties && targetPlayer.ownedProperties.length > 0) {
+    targetPlayer.ownedProperties.forEach(prop => {
+      const label = document.createElement('label');
+      label.style.display = 'flex';
+      label.style.alignItems = 'center';
+      label.style.gap = '6px';
+      label.style.cursor = 'pointer';
+      const isChecked = preselectedPropIndex === prop.index ? 'checked' : '';
+      label.innerHTML = `
+        <input type="checkbox" class="trade-target-prop-checkbox" value="${prop.index}" ${isChecked} />
+        <span>${prop.name} (kr. ${prop.price.toLocaleString('da-DK')})</span>
+      `;
+      targetPropsContainer.appendChild(label);
     });
+  } else {
+    targetPropsContainer.innerHTML = '<span class="placeholder-text" style="font-size: 0.75rem;">Modspilleren ejer ingen grunde.</span>';
   }
 
-  if (!hasItems) {
-    const opt = document.createElement('option');
-    opt.innerText = 'Ingen ejendomme eller frikort at sælge';
-    opt.disabled = true;
-    propSelect.appendChild(opt);
+  if (wantJailCardCheckbox) {
+    wantJailCardCheckbox.checked = false;
+    wantJailCardCheckbox.disabled = !targetPlayer || (targetPlayer.getOutOfJailCards || 0) <= 0;
   }
 }
 
 document.getElementById('btn-send-trade').addEventListener('click', async () => {
   const toPlayerId = sellerSelect.value;
-  const selectedVal = propSelect.value;
-  const price = parseInt(document.getElementById('trade-price-input').value);
+  if (!toPlayerId) return;
 
-  if (isNaN(price) || price <= 0) {
-    alert('Indtast et gyldigt beløb.');
+  // Saml tilbudte grunde fra mig
+  const offeredIndices = [];
+  document.querySelectorAll('.trade-my-prop-checkbox:checked').forEach(cb => {
+    offeredIndices.push(parseInt(cb.value));
+  });
+
+  // Saml ønskede grunde fra modspiller
+  const requestedIndices = [];
+  document.querySelectorAll('.trade-target-prop-checkbox:checked').forEach(cb => {
+    requestedIndices.push(parseInt(cb.value));
+  });
+
+  const offeredJailCards = giveJailCardCheckbox && giveJailCardCheckbox.checked ? 1 : 0;
+  const requestedJailCards = wantJailCardCheckbox && wantJailCardCheckbox.checked ? 1 : 0;
+
+  // Kontanter
+  const rawCash = parseInt(tradeCashAmount.value) || 0;
+  const cashAmount = tradeCashType.value === 'give' ? rawCash : -rawCash;
+
+  if (offeredIndices.length === 0 && requestedIndices.length === 0 && offeredJailCards === 0 && requestedJailCards === 0 && rawCash === 0) {
+    alert('Vælg venligst mindst én grund, et frikort eller et kontantbeløb at bytte med.');
     return;
   }
 
-  const isJailCard = selectedVal === "jail_card";
-  const propIndex = isJailCard ? -1 : parseInt(selectedVal);
-
-  if (!isJailCard && isNaN(propIndex)) {
-    alert('Vælg venligst en gyldig ejendom eller frikort.');
+  const myP = currentGameState.players.find(p => p.id === currentGameState.myPlayerId);
+  if (cashAmount > 0 && myP && myP.balance < cashAmount) {
+    alert(`Du har kun kr. ${myP.balance.toLocaleString('da-DK')}, så du kan ikke tilbyde kr. ${cashAmount.toLocaleString('da-DK')} i kontanter.`);
     return;
   }
 
@@ -1008,9 +1084,11 @@ document.getElementById('btn-send-trade').addEventListener('click', async () => 
     body: JSON.stringify({
       token: mySession.token,
       toPlayerId: toPlayerId,
-      propertyIndex: propIndex,
-      price: price,
-      isJailCard: isJailCard
+      offeredPropertyIndices: offeredIndices,
+      requestedPropertyIndices: requestedIndices,
+      cashAmount: cashAmount,
+      offeredJailCards: offeredJailCards,
+      requestedJailCards: requestedJailCards
     })
   });
 

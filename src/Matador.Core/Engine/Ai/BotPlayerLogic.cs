@@ -30,37 +30,7 @@ public static class BotPlayerLogic
         var pendingTrade = engine.TradeOffers.FirstOrDefault(t => t.Status == TradeStatus.Pending && t.ToPlayer.Id == bot.Id);
         if (pendingTrade != null)
         {
-            // Simpel evaluering: Hvis køberen betaler 130% eller mere af grundens værdi, eller mindst kr. 2.000 for et frikort
-            bool accept = false;
-            if (pendingTrade.IsJailCardTrade)
-            {
-                accept = pendingTrade.Price >= 2000;
-            }
-            else if (pendingTrade.Property != null)
-            {
-                if (pendingTrade.Property is StreetSpace streetProp)
-                {
-                    // Hvis botten ikke selv er tæt på monopol i gruppen
-                    var groupStreets = engine.Board.Spaces.OfType<StreetSpace>().Where(s => s.Group == streetProp.Group).ToList();
-                    int ownedInGroup = groupStreets.Count(s => s.Owner == bot);
-                    bool hasMonopoly = ownedInGroup == groupStreets.Count;
-
-                    // Sælg aldrig et monopol, men sælg gerne isolerede grunde hvis prisen er god
-                    if (!hasMonopoly && pendingTrade.Price >= (int)(streetProp.Price * 1.35))
-                    {
-                        accept = true;
-                    }
-                }
-                else
-                {
-                    // Færger eller bryggerier
-                    if (pendingTrade.Price >= (int)(pendingTrade.Property.Price * 1.30))
-                    {
-                        accept = true;
-                    }
-                }
-            }
-
+            bool accept = EvaluateTradeOffer(engine, bot, pendingTrade);
             engine.RespondToTrade(pendingTrade.Id, accept);
             return true;
         }
@@ -137,5 +107,81 @@ public static class BotPlayerLogic
         }
 
         return false;
+    }
+
+    private static bool EvaluateTradeOffer(GameEngine engine, Player bot, TradeOffer trade)
+    {
+        // 1. Tjek om botten har råd til kontantkravet (hvis CashAmount er negativt, skal ToPlayer/bot betale penge)
+        if (trade.CashAmount < 0 && bot.Balance < -trade.CashAmount)
+        {
+            return false;
+        }
+
+        // 2. Frikorthandel alene
+        if (trade.IsJailCardTrade)
+        {
+            return trade.CashAmount >= 2000;
+        }
+
+        // 3. Sælg ALDRIG eller byt en grund væk, hvis botten derved bryder et eksisterende monopol
+        foreach (var reqProp in trade.RequestedProperties.OfType<StreetSpace>())
+        {
+            var groupStreets = engine.Board.Spaces.OfType<StreetSpace>().Where(s => s.Group == reqProp.Group).ToList();
+            bool hasMonopoly = groupStreets.All(s => s.Owner == bot);
+            if (hasMonopoly) return false; // Beskyt eget monopol
+        }
+
+        // 4. Undgå at give modstanderen et nemt monopol (medmindre botten selv får et monopol eller massiv overpris)
+        bool givesOpponentMonopoly = false;
+        foreach (var reqProp in trade.RequestedProperties.OfType<StreetSpace>())
+        {
+            var groupStreets = engine.Board.Spaces.OfType<StreetSpace>().Where(s => s.Group == reqProp.Group).ToList();
+            int opponentOwns = groupStreets.Count(s => s.Owner == trade.FromPlayer);
+            if (opponentOwns == groupStreets.Count - 1)
+            {
+                givesOpponentMonopoly = true;
+                break;
+            }
+        }
+
+        // 5. Giver denne handel botten et nyt monopol?
+        bool givesBotMonopoly = false;
+        foreach (var offeredProp in trade.OfferedProperties.OfType<StreetSpace>())
+        {
+            var groupStreets = engine.Board.Spaces.OfType<StreetSpace>().Where(s => s.Group == offeredProp.Group).ToList();
+            int botOwns = groupStreets.Count(s => s.Owner == bot);
+            // Hvis botten mangler 1 grund i gruppen og modtager den her
+            if (botOwns == groupStreets.Count - 1)
+            {
+                givesBotMonopoly = true;
+                break;
+            }
+        }
+
+        // Hvis botten opnår et monopol, er den meget villig til at bytte
+        if (givesBotMonopoly && !givesOpponentMonopoly)
+        {
+            return true;
+        }
+
+        // Hvis handlen giver modstanderen monopol uden at botten selv får monopol, afvises det
+        if (givesOpponentMonopoly && !givesBotMonopoly)
+        {
+            return false;
+        }
+
+        // 6. Værdi-evaluering: Hvad modtager botten vs hvad afgiver botten?
+        // Botten modtager: OfferedProperties + OfferedJailCards (á 1500) + CashAmount (hvis positiv)
+        int valueReceived = trade.OfferedProperties.Sum(p => p.Price) 
+                          + (trade.OfferedJailCards * 1500) 
+                          + (trade.CashAmount > 0 ? trade.CashAmount : 0);
+
+        // Botten afgiver: RequestedProperties + RequestedJailCards (á 1500) + CashAmount (hvis negativ)
+        int valueGiven = trade.RequestedProperties.Sum(p => p.Price) 
+                       + (trade.RequestedJailCards * 1500) 
+                       + (trade.CashAmount < 0 ? -trade.CashAmount : 0);
+
+        // Botten accepterer hvis den modtagne værdi er mindst 125% af den afgivne værdi
+        return valueReceived >= (int)(valueGiven * 1.25);
     }
 }

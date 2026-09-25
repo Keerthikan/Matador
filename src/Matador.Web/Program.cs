@@ -217,16 +217,20 @@ app.MapGet("/api/rooms/{code}/state", (string code, string? token, RoomManager m
         }
     }
 
-    // Handelsforespørgsler rettet til mig
+    // Handelsforespørgsler rettet til mig (inkl. multi-byttehandler)
     var myPendingTrades = game.TradeOffers.Where(t => t.Status == TradeStatus.Pending && session != null && t.ToPlayer.Id == session.PlayerId).Select(t => new
     {
         t.Id,
         FromPlayer = t.FromPlayer.Name,
         FromPlayerId = t.FromPlayer.Id,
-        PropertyName = t.IsJailCardTrade ? "Frikort (Kom ud af Fængsel)" : t.Property?.Name,
-        PropertyIndex = t.Property?.Index ?? -1,
-        IsJailCardTrade = t.IsJailCardTrade,
-        t.Price
+        OfferedProperties = t.OfferedProperties.Select(p => new { p.Index, p.Name, p.Price }).ToList(),
+        RequestedProperties = t.RequestedProperties.Select(p => new { p.Index, p.Name, p.Price }).ToList(),
+        OfferedJailCards = t.OfferedJailCards,
+        RequestedJailCards = t.RequestedJailCards,
+        CashAmount = t.CashAmount,
+        // Bakudkompatible felter
+        PropertyName = t.RequestedProperties.Count > 0 ? string.Join(", ", t.RequestedProperties.Select(p => p.Name)) : (t.IsJailCardTrade ? "Frikort" : ""),
+        Price = t.Price
     }).ToList();
 
     // Aktiv afstemning hvis en spiller har forladt spillet
@@ -415,18 +419,25 @@ app.MapPost("/api/rooms/{code}/trade/propose", (string code, RoomTradeRequest re
 
     if (from != null && to != null)
     {
-        if (req.IsJailCard)
+        // Hvis der er tale om den nye multi-byttehandel
+        var offeredProps = req.OfferedPropertyIndices?.Select(i => room.Engine.Board[i] as OwnableSpace).Where(p => p != null).Select(p => p!).ToList();
+        var requestedProps = req.RequestedPropertyIndices?.Select(i => room.Engine.Board[i] as OwnableSpace).Where(p => p != null).Select(p => p!).ToList();
+
+        // Bakudkompatibilitet hvis gamle felter PropertyIndex blev sendt
+        if (requestedProps == null || requestedProps.Count == 0)
         {
-            var offer = room.Engine.ProposeJailCardTrade(from, to, req.Price);
-            return Results.Ok(new { success = true, offerId = offer.Id });
+            if (req.PropertyIndex >= 0)
+            {
+                var singleProp = room.Engine.Board[req.PropertyIndex] as OwnableSpace;
+                if (singleProp != null) requestedProps = new List<OwnableSpace> { singleProp };
+            }
         }
 
-        var prop = room.Engine.Board[req.PropertyIndex] as OwnableSpace;
-        if (prop != null)
-        {
-            var offer = room.Engine.ProposeTrade(from, to, prop, req.Price);
-            return Results.Ok(new { success = true, offerId = offer.Id });
-        }
+        int cash = req.CashAmount != 0 ? req.CashAmount : req.Price;
+        int reqJail = req.RequestedJailCards > 0 ? req.RequestedJailCards : (req.IsJailCard ? 1 : 0);
+
+        var offer = room.Engine.ProposeMultiTrade(from, to, offeredProps, requestedProps, cash, req.OfferedJailCards, reqJail);
+        return Results.Ok(new { success = true, offerId = offer.Id });
     }
     return Results.BadRequest(new { error = "Ugyldige parametre til handel." });
 });
@@ -467,6 +478,16 @@ public record CreateRoomRequest(string PlayerName, CityTheme City = CityTheme.Co
 public record JoinRoomRequest(string RoomCode, string PlayerName);
 public record TokenRequest(string Token);
 public record VoteRequest(string Token, bool ContinueGame);
-public record RoomTradeRequest(string Token, string ToPlayerId, int PropertyIndex, int Price, bool IsJailCard = false);
+public record RoomTradeRequest(
+    string Token, 
+    string ToPlayerId, 
+    int PropertyIndex = -1, 
+    int Price = 0, 
+    bool IsJailCard = false,
+    List<int>? OfferedPropertyIndices = null,
+    List<int>? RequestedPropertyIndices = null,
+    int CashAmount = 0,
+    int OfferedJailCards = 0,
+    int RequestedJailCards = 0);
 public record RoomTradeRespondRequest(string Token, int TradeId, bool Accept);
 public record KickPlayerRequest(string Token, string PlayerId);
