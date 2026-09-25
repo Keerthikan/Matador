@@ -215,8 +215,10 @@ async function fetchGameState() {
       lobbyModal.style.display = 'none';
       gameView.style.display = 'flex';
       currentGameState = data;
-      renderBoard();
-      renderUI();
+      if (!isAnimating) {
+        renderBoard();
+        renderUI();
+      }
     }
   } catch (err) {
     console.error('Netværksfejl under hentning af spil:', err);
@@ -305,6 +307,8 @@ function renderBoard(displayedPositions = null) {
     const spaceEl = document.createElement('div');
     spaceEl.className = 'space';
     spaceEl.id = `space-${space.index}`;
+    spaceEl.style.gridRow = pos.row;
+    spaceEl.style.gridColumn = pos.col;
     // Hjørnefelter med flot grafik
     if ([0, 10, 20, 30].includes(space.index)) {
       spaceEl.classList.add('corner');
