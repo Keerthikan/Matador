@@ -1,18 +1,65 @@
-name: Production Deployment & Status
+name: Build, Test & Deployment
 
 on:
   push:
     branches:
       - main
+    tags:
+      - 'v*'
   workflow_dispatch:
+    inputs:
+      target_env:
+        description: 'Miljø til deployment'
+        required: true
+        default: 'Production'
+        type: choice
+        options:
+          - Production
+          - Staging
 
 permissions:
   contents: read
   deployments: write
 
 jobs:
-  deploy-status:
-    name: Track Production Deployment
+  test:
+    name: Run Unit & Layout Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore dependencies
+        run: dotnet restore Matador.slnx
+
+      - name: Build solution
+        run: dotnet build Matador.slnx --configuration Release --no-restore
+
+      - name: Install Playwright Browsers & Dependencies
+        run: |
+          pwsh tests/Matador.Web.Tests/bin/Release/net10.0/playwright.ps1 install --with-deps chromium
+
+      - name: Run Core Domain & Rules Tests
+        run: dotnet test tests/Matador.Core.Tests/Matador.Core.Tests.csproj --configuration Release --no-build --logger "trx;LogFileName=core-tests.trx"
+
+      - name: Run Web Layout & Styling Tests
+        run: dotnet test tests/Matador.Web.Tests/Matador.Web.Tests.csproj --configuration Release --no-build --logger "trx;LogFileName=layout-tests.trx"
+
+      - name: Upload Test Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: '**/TestResults/*.trx'
+
+  deploy:
+    name: Deploy to Production
+    needs: test
     runs-on: ubuntu-latest
     environment:
       name: Production
@@ -21,7 +68,8 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Confirm Deployment
+      - name: Confirm Deployment & Status
         run: |
-          echo "Matador Web application successfully tracked for Production environment."
+          echo "Alle unit- og layout/styling-tests passerede med succes!"
+          echo "Deploying version: ${{ github.ref_name }}"
           echo "Production URL: https://matador-dt9v.onrender.com"

@@ -666,7 +666,10 @@ function renderUI() {
 
   // Seneste hændelse
   if (currentGameState.logs.length > 0) {
-    document.getElementById('last-event-box').innerText = currentGameState.logs[currentGameState.logs.length - 1];
+    const lastEventBox = document.getElementById('last-event-box');
+    const latestLog = currentGameState.logs[currentGameState.logs.length - 1];
+    lastEventBox.innerText = latestLog;
+    lastEventBox.title = latestLog;
   }
 
   // Spillerliste
