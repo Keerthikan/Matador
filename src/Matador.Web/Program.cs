@@ -195,7 +195,13 @@ app.MapGet("/api/rooms/{code}/state", (string code, string? token, RoomManager m
         p.IsBankrupt,
         p.IsBot,
         NetWorth = p.CalculateTotalNetWorth(),
-        OwnedProperties = p.OwnedProperties.Select(op => new { op.Index, op.Name, op.Price }).ToList(),
+        OwnedProperties = p.OwnedProperties.Select(op => new 
+        { 
+            op.Index, 
+            op.Name, 
+            op.Price,
+            Group = op is StreetSpace st ? st.Group.ToString() : (op is ShippingSpace ? "Shipping" : (op is BrewerySpace ? "Brewery" : null))
+        }).ToList(),
         OwnedCount = p.OwnedProperties.Count
     });
 
@@ -223,8 +229,20 @@ app.MapGet("/api/rooms/{code}/state", (string code, string? token, RoomManager m
         t.Id,
         FromPlayer = t.FromPlayer.Name,
         FromPlayerId = t.FromPlayer.Id,
-        OfferedProperties = t.OfferedProperties.Select(p => new { p.Index, p.Name, p.Price }).ToList(),
-        RequestedProperties = t.RequestedProperties.Select(p => new { p.Index, p.Name, p.Price }).ToList(),
+        OfferedProperties = t.OfferedProperties.Select(p => new 
+        { 
+            p.Index, 
+            p.Name, 
+            p.Price,
+            Group = p is StreetSpace st ? st.Group.ToString() : (p is ShippingSpace ? "Shipping" : (p is BrewerySpace ? "Brewery" : null))
+        }).ToList(),
+        RequestedProperties = t.RequestedProperties.Select(p => new 
+        { 
+            p.Index, 
+            p.Name, 
+            p.Price,
+            Group = p is StreetSpace st ? st.Group.ToString() : (p is ShippingSpace ? "Shipping" : (p is BrewerySpace ? "Brewery" : null))
+        }).ToList(),
         OfferedJailCards = t.OfferedJailCards,
         RequestedJailCards = t.RequestedJailCards,
         CashAmount = t.CashAmount,

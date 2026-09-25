@@ -20,6 +20,26 @@ const GROUP_COLORS = {
   Brewery: '#d35400'
 };
 
+const GROUP_DANISH = {
+  Blue: 'Blå',
+  Orange: 'Orange',
+  Green: 'Grøn',
+  Grey: 'Grå',
+  Red: 'Rød',
+  White: 'Hvid',
+  Yellow: 'Gul',
+  Purple: 'Lilla',
+  Shipping: 'Rederi ⛴️',
+  Brewery: 'Bryggeri 🍺'
+};
+
+function getPropertyColorBadge(group) {
+  if (!group) return '';
+  const color = GROUP_COLORS[group] || '#888';
+  const name = GROUP_DANISH[group] || group;
+  return `<span style="background:${color}; color:#fff; padding:1px 6px; border-radius:4px; font-size:0.68rem; font-weight:700; text-shadow:0 1px 2px rgba(0,0,0,0.6); margin-right:4px;">${name}</span>`;
+}
+
 const DICE_FACES = ['⚀', '⚁', '⚂', '⚃', '⚄', '⚅'];
 
 const params = new URLSearchParams(window.location.search);
@@ -664,12 +684,18 @@ function renderTrades() {
     const div = document.createElement('div');
     div.className = 'trade-offer-item';
 
-    const offeredItems = (t.offeredProperties || []).map(p => p.name);
-    if (t.offeredJailCards > 0) offeredItems.push(`${t.offeredJailCards}x Frikort`);
+    const offeredItems = (t.offeredProperties || []).map(p => {
+      const badge = getPropertyColorBadge(p.group || (currentGameState.spaces[p.index] ? currentGameState.spaces[p.index].group : null));
+      return `${badge}<strong>${p.name}</strong>`;
+    });
+    if (t.offeredJailCards > 0) offeredItems.push(`🎟️ ${t.offeredJailCards}x Frikort`);
     const offeredStr = offeredItems.length > 0 ? offeredItems.join(', ') : 'Ingen grunde';
 
-    const reqItems = (t.requestedProperties || []).map(p => p.name);
-    if (t.requestedJailCards > 0) reqItems.push(`${t.requestedJailCards}x Frikort`);
+    const reqItems = (t.requestedProperties || []).map(p => {
+      const badge = getPropertyColorBadge(p.group || (currentGameState.spaces[p.index] ? currentGameState.spaces[p.index].group : null));
+      return `${badge}<strong>${p.name}</strong>`;
+    });
+    if (t.requestedJailCards > 0) reqItems.push(`🎟️ ${t.requestedJailCards}x Frikort`);
     const reqStr = reqItems.length > 0 ? reqItems.join(', ') : (t.propertyName || 'Ingen grunde');
 
     let cashText = '';
@@ -680,11 +706,11 @@ function renderTrades() {
     }
 
     div.innerHTML = `
-      <div style="font-size: 0.8rem; line-height: 1.35;">
+      <div style="font-size: 0.8rem; line-height: 1.45;">
         <strong>${t.fromPlayer}</strong> tilbyder: 
-        <div style="color: #3fb950; margin: 2px 0;">🎁 [${offeredStr}]${cashText}</div>
+        <div style="color: #3fb950; margin: 4px 0; display:flex; flex-wrap:wrap; align-items:center; gap:4px;">🎁 [${offeredStr}]${cashText}</div>
         til gengæld for dine:
-        <div style="color: var(--accent-gold); margin: 2px 0;">🏠 [${reqStr}]</div>
+        <div style="color: var(--accent-gold); margin: 4px 0; display:flex; flex-wrap:wrap; align-items:center; gap:4px;">🏠 [${reqStr}]</div>
       </div>
       <div class="trade-actions" style="margin-top: 6px;">
         <button class="btn-success" style="padding: 4px 10px; font-size: 0.75rem;" onclick="respondTrade(${t.id}, true)">Accepter Bytte</button>
@@ -1029,14 +1055,22 @@ function openTradeModal(preselectedTargetPropIndex = null, preselectedSellerId =
   myPropsContainer.innerHTML = '';
   if (myP.ownedProperties && myP.ownedProperties.length > 0) {
     myP.ownedProperties.forEach(prop => {
+      const colorBadge = getPropertyColorBadge(prop.group || (currentGameState.spaces[prop.index] ? currentGameState.spaces[prop.index].group : null));
       const label = document.createElement('label');
       label.style.display = 'flex';
       label.style.alignItems = 'center';
       label.style.gap = '6px';
       label.style.cursor = 'pointer';
+      label.style.padding = '3px 4px';
+      label.style.borderRadius = '4px';
+      label.style.background = '#141820';
       label.innerHTML = `
         <input type="checkbox" class="trade-my-prop-checkbox" value="${prop.index}" />
-        <span>${prop.name} (kr. ${prop.price.toLocaleString('da-DK')})</span>
+        <div style="display:flex; align-items:center; flex-wrap:wrap; gap:4px;">
+          ${colorBadge}
+          <span style="font-weight:600;">${prop.name}</span>
+          <span style="color:#8b949e; font-size:0.72rem;">(kr. ${prop.price.toLocaleString('da-DK')})</span>
+        </div>
       `;
       myPropsContainer.appendChild(label);
     });
@@ -1072,15 +1106,23 @@ function updateTargetPlayerTradeItems(preselectedPropIndex = null) {
 
   if (targetPlayer && targetPlayer.ownedProperties && targetPlayer.ownedProperties.length > 0) {
     targetPlayer.ownedProperties.forEach(prop => {
+      const colorBadge = getPropertyColorBadge(prop.group || (currentGameState.spaces[prop.index] ? currentGameState.spaces[prop.index].group : null));
       const label = document.createElement('label');
       label.style.display = 'flex';
       label.style.alignItems = 'center';
       label.style.gap = '6px';
       label.style.cursor = 'pointer';
+      label.style.padding = '3px 4px';
+      label.style.borderRadius = '4px';
+      label.style.background = '#141820';
       const isChecked = preselectedPropIndex === prop.index ? 'checked' : '';
       label.innerHTML = `
         <input type="checkbox" class="trade-target-prop-checkbox" value="${prop.index}" ${isChecked} />
-        <span>${prop.name} (kr. ${prop.price.toLocaleString('da-DK')})</span>
+        <div style="display:flex; align-items:center; flex-wrap:wrap; gap:4px;">
+          ${colorBadge}
+          <span style="font-weight:600;">${prop.name}</span>
+          <span style="color:#8b949e; font-size:0.72rem;">(kr. ${prop.price.toLocaleString('da-DK')})</span>
+        </div>
       `;
       targetPropsContainer.appendChild(label);
     });
