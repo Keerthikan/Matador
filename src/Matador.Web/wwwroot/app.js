@@ -75,6 +75,7 @@ let isAnimating = false;
 let pollingTimer = null;
 let lastProcessedLogCount = 0;
 let lastAlertedRentKey = null;
+const knownPlayerPositions = {};
 
 function showToast(message, type = 'info', icon = '🔔') {
   let container = document.getElementById('toast-container');
@@ -303,8 +304,33 @@ async function fetchGameState() {
 
       if (!isAnimating && stateChanged) {
         lastRenderedStateJson = stateJson;
-        renderBoard();
-        renderUI();
+
+        // Tjek om en spiller (f.eks. bot eller modspiller eller Prøv Lykken ryk) har skiftet position
+        let playerMoved = null;
+        for (const p of data.players) {
+          if (knownPlayerPositions[p.id] !== undefined && knownPlayerPositions[p.id] !== p.position && !p.isBankrupt) {
+            playerMoved = { id: p.id, from: knownPlayerPositions[p.id], to: p.position };
+            break;
+          }
+        }
+
+        // Opdater kendte positioner
+        data.players.forEach(p => { knownPlayerPositions[p.id] = p.position; });
+
+        if (playerMoved) {
+          isAnimating = true;
+          (async () => {
+            await animatePlayerMovement(playerMoved.id, playerMoved.from, playerMoved.to);
+            isAnimating = false;
+            renderBoard();
+            renderUI();
+          })();
+        } else {
+          renderBoard();
+          renderUI();
+        }
+      } else if (!isAnimating && !stateChanged) {
+        data.players.forEach(p => { knownPlayerPositions[p.id] = p.position; });
       }
     }
   } catch (err) {
@@ -857,24 +883,43 @@ async function animateDiceRoll() {
 }
 
 async function animatePlayerMovement(playerId, startPos, targetPos) {
-  let steps = targetPos - startPos;
-  if (steps < 0) steps += 40;
+  // Tjek om det er f.eks. "Ryk 3 felter tilbage"
+  let forwardSteps = (targetPos - startPos + 40) % 40;
+  let isBackward = ((startPos - targetPos + 40) % 40) === 3;
 
   const positions = {};
-  currentGameState.players.forEach(p => { positions[p.id] = p.position; });
+  if (currentGameState && currentGameState.players) {
+    currentGameState.players.forEach(p => { positions[p.id] = p.position; });
+  }
 
   let cur = startPos;
-  for (let s = 1; s <= steps; s++) {
-    cur = (cur + 1) % 40;
-    positions[playerId] = cur;
-    renderBoard(positions);
 
-    if (cur === 0) {
-      const startEl = document.getElementById('space-0');
-      if (startEl) startEl.classList.add('highlight-pass');
+  if (isBackward) {
+    // Ryk 3 felter baglæns
+    for (let s = 1; s <= 3; s++) {
+      cur = (cur - 1 + 40) % 40;
+      positions[playerId] = cur;
+      renderBoard(positions);
+      await new Promise(r => setTimeout(r, 150));
     }
+  } else {
+    // Ryk fremad
+    const delay = forwardSteps > 15 ? 80 : (forwardSteps > 8 ? 110 : 140);
+    for (let s = 1; s <= forwardSteps; s++) {
+      cur = (cur + 1) % 40;
+      positions[playerId] = cur;
+      renderBoard(positions);
 
-    await new Promise(r => setTimeout(r, 140));
+      if (cur === 0) {
+        const startEl = document.getElementById('space-0');
+        if (startEl) {
+          startEl.classList.add('highlight-pass');
+          setTimeout(() => startEl.classList.remove('highlight-pass'), 600);
+        }
+      }
+
+      await new Promise(r => setTimeout(r, delay));
+    }
   }
 }
 
@@ -902,6 +947,7 @@ document.getElementById('btn-roll').addEventListener('click', async () => {
   }
 
   currentGameState = nextState;
+  nextState.players.forEach(p => { knownPlayerPositions[p.id] = p.position; });
   isAnimating = false;
   renderBoard();
   renderUI();
