@@ -218,6 +218,7 @@ app.MapGet("/api/rooms/{code}/state", (string code, string? token, RoomManager m
                 IAmCreditor = true,
                 DebtorName = game.PendingRentClaim.Debtor.Name,
                 PropertyName = game.PendingRentClaim.Property.Name,
+                PropertyIndex = game.PendingRentClaim.Property.Index,
                 Amount = game.PendingRentClaim.Amount
             };
         }

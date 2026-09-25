@@ -74,6 +74,7 @@ let selectedSpaceIndex = null;
 let isAnimating = false;
 let pollingTimer = null;
 let lastProcessedLogCount = 0;
+let lastAlertedRentKey = null;
 
 function showToast(message, type = 'info', icon = '🔔') {
   let container = document.getElementById('toast-container');
@@ -468,6 +469,10 @@ function renderBoard(displayedPositions = null) {
           spaceEl.style.backgroundColor = `${ownerColor}22`; // Blød gennemsigtig spillertone
           spaceEl.style.borderColor = ownerColor;
           spaceEl.classList.add('is-owned');
+
+          if (currentGameState.pendingRent && currentGameState.pendingRent.propertyIndex === space.index && currentGameState.pendingRent.iAmCreditor) {
+            spaceEl.classList.add('has-pending-rent');
+          }
         }
       }
     }
@@ -579,6 +584,20 @@ function renderUI() {
     }
   } else {
     voteModal.classList.add('hidden');
+  }
+
+  // Håndtering af Lejeopkrævning (når en modspiller lander på din grund)
+  const btnClaimHeader = document.getElementById('btn-claim-rent');
+
+  if (currentGameState.pendingRent && currentGameState.pendingRent.iAmCreditor) {
+    const rentInfo = currentGameState.pendingRent;
+    if (btnClaimHeader) {
+      btnClaimHeader.classList.remove('hidden');
+      btnClaimHeader.innerText = `💰 Opkræv kr. ${rentInfo.amount.toLocaleString('da-DK')}`;
+      btnClaimHeader.title = `${rentInfo.debtorName} er landet på ${rentInfo.propertyName}. Klik for at opkræve nu!`;
+    }
+  } else {
+    if (btnClaimHeader) btnClaimHeader.classList.add('hidden');
   }
 
   // Kontrolknapper: KUN aktive på din enhed når det er DIN tur!
@@ -764,6 +783,25 @@ function renderSelectedSpace() {
       }
     }
 
+    // Opkræv leje direkte på grunden hvis en modspiller er landet her
+    const hasPendingRentHere = currentGameState.pendingRent && 
+                               currentGameState.pendingRent.propertyIndex === space.index && 
+                               currentGameState.pendingRent.iAmCreditor;
+
+    if (hasPendingRentHere) {
+      const rent = currentGameState.pendingRent;
+      html += `
+        <div style="background: rgba(46, 160, 67, 0.15); border: 1px solid #2ea043; border-radius: 6px; padding: 8px; margin-top: 8px;">
+          <div style="font-size: 0.8rem; color: #3fb950; font-weight: 600;">
+            ${rent.debtorName} er landet på grunden!
+          </div>
+          <button id="btn-claim-rent-detail" class="btn-claim-property">
+            💰 Opkræv kr. ${rent.amount.toLocaleString('da-DK')} i leje
+          </button>
+        </div>
+      `;
+    }
+
     // Byd på grunden hvis den ejes af en modspiller
     if (space.ownerId && space.ownerId !== currentGameState.myPlayerId) {
       html += `<button id="btn-quick-bid" class="btn-primary" style="margin-top: 8px; width: 100%;">Byd på denne grund...</button>`;
@@ -771,6 +809,13 @@ function renderSelectedSpace() {
   }
 
   detailsEl.innerHTML = html;
+
+  const btnClaimDetail = document.getElementById('btn-claim-rent-detail');
+  if (btnClaimDetail) {
+    btnClaimDetail.addEventListener('click', async () => {
+      await triggerClaimRent();
+    });
+  }
 
   const btnBuild = document.getElementById('btn-build-house');
   if (btnBuild) {
@@ -862,14 +907,16 @@ document.getElementById('btn-roll').addEventListener('click', async () => {
   renderUI();
 });
 
-document.getElementById('btn-claim-rent').addEventListener('click', async () => {
+async function triggerClaimRent() {
   await fetch(`/api/rooms/${mySession.roomCode}/claimrent`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ token: mySession.token })
   });
   fetchGameState();
-});
+}
+
+document.getElementById('btn-claim-rent').addEventListener('click', triggerClaimRent);
 
 document.getElementById('btn-buy').addEventListener('click', async () => {
   await fetch(`/api/rooms/${mySession.roomCode}/buy`, {
