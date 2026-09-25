@@ -51,13 +51,15 @@ En moderne .NET implementation af det klassiske danske brætspil **Matador**, ko
   - AI'erne kaster terninger, køber grunde med budgetbuffer, bygger huse, betaler ud af fængsel og afgiver stemmer.
   - Opret eller deltag i spilrum via 4-cifrede koder med venner.
   - Vært/spiller-roller med sessionsstyring og mulighed for at tilføje/fjerne botter eller forlade spil.
-- **Web App**:
-  - Minimal API backend bygget på .NET 9/ASP.NET Core.
+- **Web App & Versionsstyring**:
+  - Minimal API backend bygget på .NET/ASP.NET Core.
   - Servérbar frontend via wwwroot med real-time spilinteraktion.
+  - **`/version` Endpoint & Badges**: API endpoint der udstiller aktiv version, commit SHA, build-tidspunkt og miljø. Vises direkte med diskrete tags i lobbyen og spil-headeren.
+- **Automatiserede Tests & Kvalitetssikring**:
+  - `Matador.Core.Tests`: Unit tests til validering af spillets forretningslogik, monopoler og handelsregler.
+  - `Matador.Web.Tests`: **Headless Playwright browser-tests** der tester responsive layouts (mobil, tablet, desktop), sikrer at tekst i handlingsfelter ikke afskæres, og at UI-elementer ikke overlapper.
 - **Console Demo**:
   - Hurtig CLI-udgave til at afprøve regler og simulere runder.
-- **Unit Tests**:
-  - Testsuite i `Matador.Core.Tests` til validering af spillets forretningslogik og regler.
 
 ---
 
@@ -70,17 +72,33 @@ Matador/
 │   ├── Matador.Web/           # ASP.NET Core API + statisk Web UI (wwwroot)
 │   └── Matador.ConsoleDemo/   # Simpelt konsol-interface til demo og test
 ├── tests/
-│   └── Matador.Core.Tests/    # Enhedstests til test af regler og motoren
-├── infra/                     # Infrastruktur og deploymentscripts
+│   ├── Matador.Core.Tests/    # Enhedstests til test af regler og spilmotor
+│   └── Matador.Web.Tests/     # Playwright layout-, styling- og visningstests (mobil/desktop)
+├── infra/                     # Infrastruktur og deploymentscripts (Azure/Terraform)
+├── .github/workflows/         # GitHub Actions CI/CD (Build, test & versioneret deploy)
 └── Matador.slnx               # Løsningsfil
 ```
+
+---
+
+## 🧪 Kør Tests
+
+Kør alle domæne- og layouttests med én kommando:
+```bash
+dotnet test
+```
+
+> **Tip:** Første gang du kører web-testene, kan Playwright installere Chromium-browseren med:
+> ```powershell
+> pwsh tests/Matador.Web.Tests/bin/Debug/net10.0/playwright.ps1 install chromium
+> ```
 
 ---
 
 ## 🚀 Kom i gang
 
 ### Forudsætninger
-- [.NET 9.0 SDK](https://dotnet.microsoft.com/download) eller nyere
+- [.NET SDK](https://dotnet.microsoft.com/download) (.NET 9 / 10)
 
 ### Kør Web Applikationen
 
@@ -109,8 +127,14 @@ docker run -p 8080:8080 matador
 ```
 Åbn derefter `http://localhost:8080`.
 
-### ☁️ Cloud Deployment
-Projektet indeholder en optimeret multi-stage `Dockerfile` og deployes automatisk gratis via [Render.com](https://render.com) ved hvert push til `main`.
+### ☁️ CI/CD & Versioneret Deployment
+Projektet indeholder et GitHub Actions workflow ([`.github/workflows/deployment.yml`](.github/workflows/deployment.yml)):
+1. **Automatiske testporte:** Ingen kode kan deployes, hvis enten enhedstests eller Playwright layout-tests fejler.
+2. **Versionstyring:**
+   * Manuel deploy via GitHub Actions: Vælg frit versionsnummer (f.eks. `1.3.0`) og miljø (`Production`/`Staging`).
+   * Tag-baseret deploy: Pusher du et tag (`v*`), tagges versionen automatisk.
+   * Kontinuerlig deployment: Hvert push til `main` bygger og verificerer automatisk med run-nummer og commit hash.
+   * Se den aktive version live på: [https://matador-dt9v.onrender.com/version](https://matador-dt9v.onrender.com/version).
 
 ---
 
