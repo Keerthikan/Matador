@@ -53,6 +53,31 @@ let lastRenderedStateJson = null;
 let selectedSpaceIndex = null;
 let isAnimating = false;
 let pollingTimer = null;
+let lastProcessedLogCount = 0;
+
+function showToast(message, type = 'info', icon = '🔔') {
+  let container = document.getElementById('toast-container');
+  if (!container) {
+    container = document.createElement('div');
+    container.id = 'toast-container';
+    container.className = 'toast-container';
+    document.body.appendChild(container);
+  }
+
+  const toast = document.createElement('div');
+  toast.className = `toast toast-${type}`;
+  toast.innerHTML = `
+    <span style="font-size: 1.2rem; line-height: 1;">${icon}</span>
+    <div>${message}</div>
+  `;
+
+  container.appendChild(toast);
+
+  setTimeout(() => {
+    toast.classList.add('toast-fade-out');
+    setTimeout(() => toast.remove(), 300);
+  }, 4000);
+}
 
 // Grid positionering af felterne (START er øverst til venstre, går med uret rundt)
 function getGridPosition(index) {
@@ -232,6 +257,31 @@ async function fetchGameState() {
 
       if (!isAnimating && stateChanged) {
         lastRenderedStateJson = stateJson;
+        
+        // Tjek for nye hændelser og vis vigtige notifikationer
+        if (data.logs && data.logs.length > 0) {
+          if (lastProcessedLogCount === 0) {
+            lastProcessedLogCount = data.logs.length;
+          } else if (data.logs.length > lastProcessedLogCount) {
+            const newLogs = data.logs.slice(lastProcessedLogCount);
+            lastProcessedLogCount = data.logs.length;
+
+            newLogs.forEach(log => {
+              if (log.includes('HANDEL GENNEMFØRT')) {
+                showToast(log, 'success', '🤝');
+              } else if (log.includes('afviste') || log.includes('annulleret')) {
+                showToast(log, 'danger', '❌');
+              } else if (log.includes('JACKPOT')) {
+                showToast(log, 'success', '💰');
+              } else if (log.includes('opkrævede leje')) {
+                showToast(log, 'info', '💸');
+              } else if (log.includes('Fængsel')) {
+                showToast(log, 'info', '👮');
+              }
+            });
+          }
+        }
+
         renderBoard();
         renderUI();
       }
@@ -1093,6 +1143,7 @@ document.getElementById('btn-send-trade').addEventListener('click', async () => 
   });
 
   tradeModal.classList.add('hidden');
+  showToast('Dit byttetilbud er sendt afsted!', 'info', '📨');
   fetchGameState();
 });
 
