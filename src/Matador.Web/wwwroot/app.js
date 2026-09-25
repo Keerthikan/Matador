@@ -255,33 +255,33 @@ async function fetchGameState() {
       const stateChanged = stateJson !== lastRenderedStateJson;
       currentGameState = data;
 
+      // Tjek altid for nye hændelser og vis vigtige toasts straks (uanset om brættet genrendres)
+      if (data.logs && data.logs.length > 0) {
+        if (lastProcessedLogCount === 0) {
+          lastProcessedLogCount = data.logs.length;
+        } else if (data.logs.length > lastProcessedLogCount) {
+          const newLogs = data.logs.slice(lastProcessedLogCount);
+          lastProcessedLogCount = data.logs.length;
+
+          newLogs.forEach(log => {
+            const cleanLog = log.replace(/^[❌🤝💰🔔⚠️👀💼🎟️🏨🏠🏛️]\s*/, '');
+            if (log.includes('HANDEL GENNEMFØRT')) {
+              showToast(cleanLog, 'success', '🤝');
+            } else if (log.toLowerCase().includes('afviste') || log.toLowerCase().includes('annulleret')) {
+              showToast(cleanLog, 'danger', '❌');
+            } else if (log.includes('JACKPOT')) {
+              showToast(cleanLog, 'success', '💰');
+            } else if (log.includes('opkrævede leje')) {
+              showToast(cleanLog, 'info', '💸');
+            } else if (log.includes('Fængsel') && !log.includes('På besøg')) {
+              showToast(cleanLog, 'info', '👮');
+            }
+          });
+        }
+      }
+
       if (!isAnimating && stateChanged) {
         lastRenderedStateJson = stateJson;
-        
-        // Tjek for nye hændelser og vis vigtige notifikationer
-        if (data.logs && data.logs.length > 0) {
-          if (lastProcessedLogCount === 0) {
-            lastProcessedLogCount = data.logs.length;
-          } else if (data.logs.length > lastProcessedLogCount) {
-            const newLogs = data.logs.slice(lastProcessedLogCount);
-            lastProcessedLogCount = data.logs.length;
-
-            newLogs.forEach(log => {
-              if (log.includes('HANDEL GENNEMFØRT')) {
-                showToast(log, 'success', '🤝');
-              } else if (log.includes('afviste') || log.includes('annulleret')) {
-                showToast(log, 'danger', '❌');
-              } else if (log.includes('JACKPOT')) {
-                showToast(log, 'success', '💰');
-              } else if (log.includes('opkrævede leje')) {
-                showToast(log, 'info', '💸');
-              } else if (log.includes('Fængsel')) {
-                showToast(log, 'info', '👮');
-              }
-            });
-          }
-        }
-
         renderBoard();
         renderUI();
       }
