@@ -26,15 +26,21 @@ En moderne .NET implementation af det klassiske danske brætspil **Matador**, ko
 
 ## 🌟 Features
 
-- **Matador.Core Engine**:
-  - Komplet spilmotor med felter, grupper, skøder, huse/hoteller, fængsel og prøv lykken-kort.
-  - Håndtering af køb, leje, pantsætning og fallit.
-  - Støtte til byer/temaer (f.eks. København).
+- **Matador.Core Engine & By-Udgave Temaer**:
+  - Komplet spilmotor med 40 felter, farvegrupper, skøder, huse/hoteller, fængsel, skat og prøv lykken-kort.
+  - **4 Danske Byer & Temaer**: Vælg frit imellem **København** (original), **Aarhus** (Smilets By), **Odense** (H.C. Andersens By med FynBus og Letbane) og **Aalborg** (Nordens Paris).
+  - Korrekte transportmidler (færger ⛴️, busser 🚌, letbane 🚊) og lokale bryggerier 🍺 (Tuborg, Ceres, Albani, Carlsberg, Munkebo, Søgaards).
+  - Håndtering af køb, leje, pantsætning, bankerot og jackpot-parkeringspulje.
+  - Tjek af købeevne: Grundkøb tilbydes kun hvis spilleren reelt har råd.
+- **Interaktivt Bræt & Visuelle Ejer-Markeringer**:
+  - Dynamisk bevægelse af spillebrikker med uret rundt om pladens 4 ydersider.
+  - Tydelig visualisering af ejerskab med diskret spillertoning af grundene og ejer-cirkler med spillerens brik og farve i øverste hjørne.
+  - Asymmetrisk leje-opkrævning: Kreditor skal selv nå at opkræve lejen inden næste terningekast!
 - **Multiplayer, Solo & AI Botter**:
-  - Spil alene mod 1-5 smarte AI-spillere (f.eks. *Robot Mads*, *Onkel Joakim*, *Baron von Guld*).
-  - AI'erne kaster terninger, køber grunde, bygger huse, betaler skat, opkræver leje og forhandler/sælger ejendomme automatisk.
-  - Opret eller deltag i spilrum via rumkoder med venner.
-  - Vært/spiller-roller med sessionsstyring og mulighed for at tilføje/fjerne botter.
+  - Spil alene mod 1-5 intelligente computer-modstandere (f.eks. *Robot Mads*, *Onkel Joakim*, *Baron von Guld*).
+  - AI'erne kaster terninger, køber grunde strategisk med budgetbuffer, bygger huse, betaler ud af fængsel, afgiver stemmer og evaluerer handelstilbud.
+  - Opret eller deltag i spilrum via 4-cifrede koder med venner.
+  - Vært/spiller-roller med sessionsstyring og mulighed for at tilføje/fjerne botter eller forlade spil.
 - **Web App**:
   - Minimal API backend bygget på .NET 9/ASP.NET Core.
   - Servérbar frontend via wwwroot med real-time spilinteraktion.
