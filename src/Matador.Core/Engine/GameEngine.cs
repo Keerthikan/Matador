@@ -342,9 +342,18 @@ public class GameEngine
     {
         if (ownable.Owner == null)
         {
-            // Grunden er ledig - spiller kan købe den
-            State.Phase = TurnPhase.PendingBuyOrPass;
-            Log($"{ownable.Name} er ledig! Pris: kr. {ownable.Price:N0}. Vælg om du vil købe.");
+            if (player.Balance >= ownable.Price)
+            {
+                // Grunden er ledig og spilleren har råd til at købe den
+                State.Phase = TurnPhase.PendingBuyOrPass;
+                Log($"{ownable.Name} er ledig! Pris: kr. {ownable.Price:N0}. Vælg om du vil købe.");
+            }
+            else
+            {
+                // Spilleren har ikke råd til at købe grunden
+                State.Phase = TurnPhase.ActionResolved;
+                Log($"{ownable.Name} er ledig (kr. {ownable.Price:N0}), men {player.Name} har ikke råd (saldo: kr. {player.Balance:N0}).");
+            }
         }
         else if (ownable.Owner != player)
         {

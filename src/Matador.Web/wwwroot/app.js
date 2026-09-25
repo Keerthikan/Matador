@@ -49,16 +49,27 @@ const CORNER_ICONS = {
 };
 
 let currentGameState = null;
+let lastRenderedStateJson = null;
 let selectedSpaceIndex = null;
 let isAnimating = false;
 let pollingTimer = null;
 
-// Grid positionering af felterne
+// Grid positionering af felterne (START er øverst til venstre, går med uret rundt)
 function getGridPosition(index) {
-  if (index >= 0 && index <= 10) return { row: 11, col: 11 - index };
-  if (index >= 11 && index <= 20) return { row: 11 - (index - 10), col: 1 };
-  if (index >= 21 && index <= 30) return { row: 1, col: 1 + (index - 20) };
-  return { row: 1 + (index - 30), col: 11 };
+  // Top-række: 0 (START top-left) til 10 (FÆNGSEL top-right) -> Row 1, Col 1..11
+  if (index >= 0 && index <= 10) {
+    return { row: 1, col: 1 + index };
+  }
+  // Højre kolonne: 11 til 20 (PARKERING bottom-right) -> Row 2..11, Col 11
+  if (index >= 11 && index <= 20) {
+    return { row: 1 + (index - 10), col: 11 };
+  }
+  // Bund-række: 21 til 30 (GÅ I FÆNGSEL bottom-left) -> Row 11, Col 10..1
+  if (index >= 21 && index <= 30) {
+    return { row: 11, col: 11 - (index - 20) };
+  }
+  // Venstre kolonne: 31 til 39 -> Row 10..2, Col 1
+  return { row: 11 - (index - 30), col: 1 };
 }
 
 /* ============================================================
@@ -214,8 +225,13 @@ async function fetchGameState() {
     } else {
       lobbyModal.style.display = 'none';
       gameView.style.display = 'flex';
+      
+      const stateJson = JSON.stringify(data);
+      const stateChanged = stateJson !== lastRenderedStateJson;
       currentGameState = data;
-      if (!isAnimating) {
+
+      if (!isAnimating && stateChanged) {
+        lastRenderedStateJson = stateJson;
         renderBoard();
         renderUI();
       }
@@ -318,12 +334,31 @@ function renderBoard(displayedPositions = null) {
         <div class="space-title">${cornerData.text}</div>
       `;
     } else {
-      // Almindeligt felt
-      if (space.group && GROUP_COLORS[space.group]) {
+      // Almindeligt felt: gader har farvebjælke, rederier/transport og bryggerier har egne ikoner
+      if (space.type === 'Street' && space.group && GROUP_COLORS[space.group]) {
         const bar = document.createElement('div');
         bar.className = 'space-color-bar';
         bar.style.backgroundColor = GROUP_COLORS[space.group];
         spaceEl.appendChild(bar);
+      } else if (space.type === 'Shipping') {
+        const shipIcon = document.createElement('div');
+        shipIcon.className = 'special-space-icon';
+        const nameLower = space.name.toLowerCase();
+        if (nameLower.includes('bus')) {
+          shipIcon.innerText = '🚌';
+        } else if (nameLower.includes('letbane') || nameLower.includes('tog') || nameLower.includes('dsb')) {
+          shipIcon.innerText = '🚊';
+        } else {
+          shipIcon.innerText = '⛴️';
+        }
+        shipIcon.title = 'Transport';
+        spaceEl.appendChild(shipIcon);
+      } else if (space.type === 'Brewery') {
+        const brewIcon = document.createElement('div');
+        brewIcon.className = 'special-space-icon';
+        brewIcon.innerText = '🍺';
+        brewIcon.title = 'Bryggeri';
+        spaceEl.appendChild(brewIcon);
       }
 
       const title = document.createElement('div');
@@ -331,22 +366,39 @@ function renderBoard(displayedPositions = null) {
       title.innerText = space.name;
       spaceEl.appendChild(title);
 
-      if (space.price > 0 && !space.ownerName) {
-        const price = document.createElement('div');
-        price.className = 'space-price';
-        price.innerText = `kr. ${space.price.toLocaleString('da-DK')}`;
-        spaceEl.appendChild(price);
-      }
-    }
+      if (space.price > 0) {
+        if (!space.ownerId) {
+          const price = document.createElement('div');
+          price.className = 'space-price';
+          price.innerText = `kr. ${space.price.toLocaleString('da-DK')}`;
+          spaceEl.appendChild(price);
+        } else {
+          const ownerIdx = currentGameState.players.findIndex(p => p.id === space.ownerId);
+          const ownerPlayer = ownerIdx !== -1 ? currentGameState.players[ownerIdx] : null;
+          const ownerColor = ownerIdx !== -1 ? PLAYER_COLORS[ownerIdx % PLAYER_COLORS.length] : '#888';
+          const defaultIcons = ['🎩', '🚗', '🐕', '⛵', '🚲', '🍺'];
+          const ownerIcon = ownerPlayer && ownerPlayer.id === mySession.playerId ? (mySession.tokenIcon || defaultIcons[ownerIdx % defaultIcons.length]) : (ownerPlayer ? defaultIcons[ownerIdx % defaultIcons.length] : '👤');
 
-    if (space.ownerId) {
-      const ownerIdx = currentGameState.players.findIndex(p => p.id === space.ownerId);
-      if (ownerIdx !== -1) {
-        const ownerInd = document.createElement('div');
-        ownerInd.className = 'owner-indicator';
-        ownerInd.style.borderRightColor = PLAYER_COLORS[ownerIdx % PLAYER_COLORS.length];
-        ownerInd.style.borderTopColor = 'transparent';
-        spaceEl.appendChild(ownerInd);
+          // Cirkel i øverste hjørne med ejerens farve og ikon
+          const ownerCircle = document.createElement('div');
+          ownerCircle.className = 'owner-circle';
+          ownerCircle.style.backgroundColor = ownerColor;
+          ownerCircle.title = `Ejes af: ${space.ownerName || (ownerPlayer ? ownerPlayer.name : 'Ukendt')}`;
+          ownerCircle.innerText = ownerIcon;
+          spaceEl.appendChild(ownerCircle);
+
+          // Vis leje på grunden
+          const rentEl = document.createElement('div');
+          rentEl.className = 'space-price';
+          rentEl.style.color = '#555';
+          rentEl.innerText = `Leje: ${space.currentRent.toLocaleString('da-DK')}`;
+          spaceEl.appendChild(rentEl);
+
+          // Farv hele baggrunden af feltet med en blød nuance af spillerens farve
+          spaceEl.style.backgroundColor = `${ownerColor}22`; // Blød gennemsigtig spillertone
+          spaceEl.style.borderColor = ownerColor;
+          spaceEl.classList.add('is-owned');
+        }
       }
     }
 
@@ -481,7 +533,14 @@ function renderUI() {
     if (phase === 'WaitingForRoll') {
       btnRoll.classList.remove('hidden');
     } else if (phase === 'PendingBuyOrPass') {
-      buyActions.classList.remove('hidden');
+      const currentSpace = currentGameState.spaces[curP.position];
+      if (currentSpace && curP.balance < currentSpace.price) {
+        // Har ikke råd
+        buyActions.classList.add('hidden');
+        btnEndTurn.classList.remove('hidden');
+      } else {
+        buyActions.classList.remove('hidden');
+      }
     } else if (phase === 'ActionResolved') {
       btnEndTurn.classList.remove('hidden');
     }

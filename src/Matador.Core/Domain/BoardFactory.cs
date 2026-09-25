@@ -73,9 +73,9 @@ public class BoardFactory
     {
         var board = new Board();
 
-        // Blå
+        // Blå (Start/billige grunde i Odense, svarer til Rødovrevej/Hvidovrevej)
         SetStreet(board, 1, "Tarupvej");
-        SetStreet(board, 3, "Vollsmose Allé");
+        SetStreet(board, 3, "Vollsmosevej");
         // Transport
         SetShipping(board, 5, "Odense Letbane");
         // Orange
@@ -88,7 +88,7 @@ public class BoardFactory
         SetStreet(board, 13, "Kochsgade");
         SetStreet(board, 14, "Nørregade");
         // Transport
-        SetShipping(board, 15, "DSB Fyn");
+        SetShipping(board, 15, "FynBus");
         // Grå
         SetStreet(board, 16, "Læssøegade");
         SetStreet(board, 18, "Hunderupvej");
