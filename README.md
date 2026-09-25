@@ -4,6 +4,14 @@ En moderne .NET implementation af det klassiske danske brætspil **Matador**, ko
 
 ---
 
+## 📸 Screenshots
+
+| 🎮 Spillebræt i Real-tid | 🏠 Multiplayer Lobby |
+| :---: | :---: |
+| ![Spilleplade](docs/images/gameboard.png) | ![Lobby](docs/images/lobby.png) |
+
+---
+
 ## 🌟 Features
 
 - **Matador.Core Engine**:

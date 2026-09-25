@@ -22,6 +22,15 @@ const GROUP_COLORS = {
 
 const DICE_FACES = ['⚀', '⚁', '⚂', '⚃', '⚄', '⚅'];
 
+const params = new URLSearchParams(window.location.search);
+if (params.get('room')) {
+  localStorage.setItem('matador_room', params.get('room'));
+  if (params.get('token')) localStorage.setItem('matador_token', params.get('token'));
+  if (params.get('playerId')) localStorage.setItem('matador_playerId', params.get('playerId'));
+  if (params.get('name')) localStorage.setItem('matador_name', params.get('name'));
+  if (params.get('isHost')) localStorage.setItem('matador_isHost', params.get('isHost'));
+}
+
 // Tilstand for den lokale enhed
 let mySession = {
   roomCode: localStorage.getItem('matador_room') || null,
