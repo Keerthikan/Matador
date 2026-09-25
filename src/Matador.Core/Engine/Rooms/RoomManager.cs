@@ -9,11 +9,13 @@ public class PlayerSession
     public string Token { get; set; } = Guid.NewGuid().ToString("N");
     public string Name { get; set; }
     public bool IsHost { get; set; }
+    public bool IsBot { get; set; }
 
-    public PlayerSession(string name, bool isHost = false)
+    public PlayerSession(string name, bool isHost = false, bool isBot = false)
     {
         Name = name;
         IsHost = isHost;
+        IsBot = isBot;
     }
 }
 
@@ -39,7 +41,7 @@ public class GameRoom
             throw new InvalidOperationException("Der skal være mindst 2 spillere for at starte spillet.");
         }
 
-        var players = Sessions.Select(s => new Player(s.PlayerId, s.Name, 30000)).ToList();
+        var players = Sessions.Select(s => new Player(s.PlayerId, s.Name, 30000, isBot: s.IsBot)).ToList();
         var board = BoardFactory.CreateBoard(City);
         Engine = new GameEngine(players, board: board);
         Logs.Add($"Spillet '{Code}' ({City} udgave) er startet med {players.Count} spillere!");
@@ -84,6 +86,39 @@ public class RoomManager
         var session = new PlayerSession(playerName);
         room.Sessions.Add(session);
         return session;
+    }
+
+    public PlayerSession? AddBotToRoom(string code, string hostToken, string? botName = null)
+    {
+        var room = GetRoom(code);
+        if (room == null || room.IsStarted || room.Sessions.Count >= 6) return null;
+
+        var hostSession = room.Sessions.FirstOrDefault(s => s.IsHost);
+        if (hostSession == null || hostSession.Token != hostToken) return null;
+
+        string[] botNames = { "🤖 Robot Mads", "🤖 Onkel Joakim", "🤖 Baron von Guld", "🤖 Direktør Holm", "🤖 Frk. Fernando" };
+        int botIndex = room.Sessions.Count(s => s.IsBot);
+        string name = botName ?? (botIndex < botNames.Length ? botNames[botIndex] : $"🤖 Computer {botIndex + 1}");
+
+        var session = new PlayerSession(name, isHost: false, isBot: true);
+        room.Sessions.Add(session);
+        return session;
+    }
+
+    public bool RemovePlayerFromRoom(string code, string playerId, string hostToken)
+    {
+        var room = GetRoom(code);
+        if (room == null || room.IsStarted) return false;
+
+        var hostSession = room.Sessions.FirstOrDefault(s => s.IsHost);
+        if (hostSession == null || hostSession.Token != hostToken) return false;
+
+        var target = room.Sessions.FirstOrDefault(s => s.PlayerId == playerId && !s.IsHost);
+        if (target != null)
+        {
+            return room.Sessions.Remove(target);
+        }
+        return false;
     }
 
     public bool DeleteRoom(string code, string hostToken)

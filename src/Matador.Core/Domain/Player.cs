@@ -10,14 +10,16 @@ public class Player
     public int TurnsInJail { get; set; }
     public int GetOutOfJailCards { get; set; }
     public bool IsBankrupt { get; set; }
+    public bool IsBot { get; set; }
     public List<OwnableSpace> OwnedProperties { get; } = new();
 
-    public Player(string id, string name, int startingBalance = 30000)
+    public Player(string id, string name, int startingBalance = 30000, bool isBot = false)
     {
         Id = id;
         Name = name;
         Balance = startingBalance;
         Position = 0;
+        IsBot = isBot;
     }
 
     public void AddMoney(int amount)

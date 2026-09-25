@@ -230,22 +230,69 @@ function renderLobbyWaiting(data) {
   document.querySelector('.lobby-split').classList.add('hidden');
   displayRoomCode.innerText = data.roomCode;
 
+const btnAddBot = document.getElementById('btn-add-bot');
+
+if (btnAddBot) {
+  btnAddBot.addEventListener('click', async () => {
+    if (!mySession.roomCode || !mySession.token) return;
+    const res = await fetch(`/api/rooms/${mySession.roomCode}/addbot`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: mySession.token })
+    });
+    if (!res.ok) {
+      const err = await res.text();
+      alert(`Kunne ikke tilføje bot: ${err}`);
+    } else {
+      fetchGameState();
+    }
+  });
+}
+
+window.kickLobbyPlayer = async function(playerId) {
+  if (!mySession.roomCode || !mySession.token) return;
+  await fetch(`/api/rooms/${mySession.roomCode}/kickplayer`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token: mySession.token, playerId })
+  });
+  fetchGameState();
+};
+
+function renderLobbyWaiting(data) {
+  lobbyModal.style.display = 'flex';
+  gameView.style.display = 'none';
+  waitingRoom.classList.remove('hidden');
+  document.querySelector('.lobby-split').classList.add('hidden');
+  displayRoomCode.innerText = data.roomCode;
+
   joinedPlayersList.innerHTML = '';
   data.lobbyPlayers.forEach(p => {
     const div = document.createElement('div');
     div.className = 'joined-player-item';
+    
+    let kickBtn = '';
+    if (mySession.isHost && p.playerId !== mySession.playerId) {
+      kickBtn = `<button onclick="kickLobbyPlayer('${p.playerId}')" style="background: none; border: none; color: #da3633; cursor: pointer; font-size: 0.8rem; padding: 2px 6px;" title="Fjern">✕</button>`;
+    }
+
     div.innerHTML = `
-      <span><strong>${p.name}</strong> ${p.playerId === mySession.playerId ? '(Dig)' : ''}</span>
-      <span>${p.isHost ? '👑 Vært' : 'Klar'}</span>
+      <span><strong>${p.name}</strong> ${p.playerId === mySession.playerId ? '(Dig)' : ''} ${p.isBot ? '<span style="background: #1f6feb; color: #fff; padding: 1px 6px; border-radius: 8px; font-size: 0.7rem; margin-left: 4px;">AI Bot</span>' : ''}</span>
+      <span>${p.isHost ? '👑 Vært' : 'Klar'} ${kickBtn}</span>
     `;
     joinedPlayersList.appendChild(div);
   });
 
   if (mySession.isHost) {
+    if (btnAddBot) {
+      btnAddBot.classList.remove('hidden');
+      btnAddBot.disabled = data.lobbyPlayers.length >= 6;
+    }
     btnStartGame.classList.remove('hidden');
     btnStartGame.disabled = data.lobbyPlayers.length < 2;
     btnStartGame.innerText = data.lobbyPlayers.length < 2 ? 'Venter på mindst 2 spillere...' : `Start Spil (${data.lobbyPlayers.length} spillere)`;
   } else {
+    if (btnAddBot) btnAddBot.classList.add('hidden');
     btnStartGame.classList.add('hidden');
   }
 }
@@ -464,11 +511,16 @@ function renderUI() {
       jailBadge = `<span style="background: #8e44ad; color: #fff; padding: 1px 6px; border-radius: 10px; font-size: 0.68rem; margin-left: 4px;">🎟️ ${p.getOutOfJailCards} Frikort</span>`;
     }
 
+    let botBadge = '';
+    if (p.isBot) {
+      botBadge = `<span style="background: #1f6feb; color: #fff; padding: 1px 6px; border-radius: 8px; font-size: 0.68rem; margin-left: 4px;">AI Bot</span>`;
+    }
+
     item.innerHTML = `
       <div class="player-info">
         <div class="player-token-badge" style="background-color: ${PLAYER_COLORS[idx % PLAYER_COLORS.length]}"></div>
         <div>
-          <div class="player-name">${p.name} ${p.id === currentGameState.myPlayerId ? '(Dig)' : ''} ${p.isBankrupt ? '(Bankerot)' : ''} ${jailBadge}</div>
+          <div class="player-name">${p.name} ${p.id === currentGameState.myPlayerId ? '(Dig)' : ''} ${botBadge} ${p.isBankrupt ? '(Bankerot)' : ''} ${jailBadge}</div>
           <div style="font-size: 0.75rem; color: #8b949e;">Ejendomme: ${p.ownedCount} | Formue: kr. ${p.netWorth.toLocaleString('da-DK')}</div>
         </div>
       </div>

@@ -30,9 +30,11 @@ En moderne .NET implementation af det klassiske danske brætspil **Matador**, ko
   - Komplet spilmotor med felter, grupper, skøder, huse/hoteller, fængsel og prøv lykken-kort.
   - Håndtering af køb, leje, pantsætning og fallit.
   - Støtte til byer/temaer (f.eks. København).
-- **Multiplayer & Lobbies**:
-  - Opret eller deltag i spilrum via rumkoder.
-  - Vært/spiller-roller med sessionsstyring.
+- **Multiplayer, Solo & AI Botter**:
+  - Spil alene mod 1-5 smarte AI-spillere (f.eks. *Robot Mads*, *Onkel Joakim*, *Baron von Guld*).
+  - AI'erne kaster terninger, køber grunde, bygger huse, betaler skat, opkræver leje og forhandler/sælger ejendomme automatisk.
+  - Opret eller deltag i spilrum via rumkoder med venner.
+  - Vært/spiller-roller med sessionsstyring og mulighed for at tilføje/fjerne botter.
 - **Web App**:
   - Minimal API backend bygget på .NET 9/ASP.NET Core.
   - Servérbar frontend via wwwroot med real-time spilinteraktion.

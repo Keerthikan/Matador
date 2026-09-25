@@ -64,6 +64,28 @@ app.MapPost("/api/rooms/join", (JoinRoomRequest req, RoomManager manager) =>
     });
 });
 
+app.MapPost("/api/rooms/{code}/addbot", (string code, TokenRequest req, RoomManager manager) =>
+{
+    var botSession = manager.AddBotToRoom(code, req.Token);
+    if (botSession == null)
+    {
+        return Results.BadRequest("Kunne ikke tilføje bot (rummet findes ikke, er fuldt, eller du er ikke vært).");
+    }
+    return Results.Ok(new
+    {
+        playerId = botSession.PlayerId,
+        name = botSession.Name,
+        isBot = true
+    });
+});
+
+app.MapPost("/api/rooms/{code}/kickplayer", (string code, KickPlayerRequest req, RoomManager manager) =>
+{
+    bool removed = manager.RemovePlayerFromRoom(code, req.PlayerId, req.Token);
+    if (!removed) return Results.BadRequest("Kunne ikke fjerne spilleren.");
+    return Results.Ok();
+});
+
 app.MapPost("/api/rooms/{code}/close", (string code, TokenRequest req, RoomManager manager) =>
 {
     bool deleted = manager.DeleteRoom(code, req.Token);
@@ -116,11 +138,31 @@ app.MapGet("/api/rooms/{code}/state", (string code, string? token, RoomManager m
             IsStarted = false,
             MyPlayerId = session?.PlayerId,
             IsHost = session?.IsHost ?? false,
-            LobbyPlayers = room.Sessions.Select(s => new { s.PlayerId, s.Name, s.IsHost }).ToList()
+            LobbyPlayers = room.Sessions.Select(s => new { s.PlayerId, s.Name, s.IsHost, s.IsBot }).ToList()
         });
     }
 
     var game = room.Engine;
+
+    // AI / BOT EKSEKVERING:
+    // Hvis der er en bot i spillet, tjek om botten kan udføre sit næste træk (f.eks. kaste terning, købe, eller svare på handel)
+    if (!game.IsGameOver)
+    {
+        var currentP = game.CurrentPlayer;
+        if (currentP.IsBot)
+        {
+            Matador.Core.Engine.Ai.BotPlayerLogic.ExecuteStep(game, currentP);
+        }
+        else
+        {
+            // Tjek om andre botter skal svare på handel eller stemme
+            foreach (var b in game.Players.Where(p => p.IsBot && !p.IsBankrupt))
+            {
+                Matador.Core.Engine.Ai.BotPlayerLogic.ExecuteStep(game, b);
+            }
+        }
+    }
+
     var myPlayer = session != null ? game.Players.FirstOrDefault(p => p.Id == session.PlayerId) : null;
     bool isMyTurn = myPlayer != null && game.CurrentPlayer == myPlayer;
 
@@ -151,6 +193,7 @@ app.MapGet("/api/rooms/{code}/state", (string code, string? token, RoomManager m
         p.TurnsInJail,
         p.GetOutOfJailCards,
         p.IsBankrupt,
+        p.IsBot,
         NetWorth = p.CalculateTotalNetWorth(),
         OwnedProperties = p.OwnedProperties.Select(op => new { op.Index, op.Name, op.Price }).ToList(),
         OwnedCount = p.OwnedProperties.Count
@@ -426,3 +469,4 @@ public record TokenRequest(string Token);
 public record VoteRequest(string Token, bool ContinueGame);
 public record RoomTradeRequest(string Token, string ToPlayerId, int PropertyIndex, int Price, bool IsJailCard = false);
 public record RoomTradeRespondRequest(string Token, int TradeId, bool Accept);
+public record KickPlayerRequest(string Token, string PlayerId);
