@@ -223,13 +223,6 @@ async function fetchGameState() {
   }
 }
 
-function renderLobbyWaiting(data) {
-  lobbyModal.style.display = 'flex';
-  gameView.style.display = 'none';
-  waitingRoom.classList.remove('hidden');
-  document.querySelector('.lobby-split').classList.add('hidden');
-  displayRoomCode.innerText = data.roomCode;
-
 const btnAddBot = document.getElementById('btn-add-bot');
 
 if (btnAddBot) {
