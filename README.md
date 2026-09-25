@@ -2,6 +2,10 @@
 
 En moderne .NET implementation af det klassiske danske brætspil **Matador**, komplet med en robust domænemotor, web-baseret multiplayer lobby og en interaktiv frontend.
 
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-matador--dt9v.onrender.com-success?style=for-the-badge&logo=render)](https://matador-dt9v.onrender.com)
+> 🌐 **Spil online nu:** **[https://matador-dt9v.onrender.com](https://matador-dt9v.onrender.com)**
+
+
 ---
 
 ## 📸 Screenshots
@@ -98,11 +102,15 @@ Matador/
 dotnet run --project src/Matador.ConsoleDemo
 ```
 
-### Kør Tests
-
+### Kør med Docker lokalt
 ```bash
-dotnet test
+docker build -t matador .
+docker run -p 8080:8080 matador
 ```
+Åbn derefter `http://localhost:8080`.
+
+### ☁️ Cloud Deployment
+Projektet indeholder en optimeret multi-stage `Dockerfile` og deployes automatisk gratis via [Render.com](https://render.com) ved hvert push til `main`.
 
 ---
 
