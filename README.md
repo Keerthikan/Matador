@@ -16,6 +16,12 @@ En moderne .NET implementation af det klassiske danske brætspil **Matador**, ko
 | :---: | :---: | :---: |
 | ![Mobil Visning](docs/images/mobile.png) | ![Handel og Leje](docs/images/trade.png) | ![Handelsmodal](docs/images/trade_modal.png) |
 
+### 🗳️ Forlad Spil & Afstemning
+| 🗳️ Demokratisk Afstemning ved Forladt Spil |
+| :---: |
+| ![Afstemning](docs/images/vote.png) |
+| *Når en spiller forlader et igangværende spil, stemmer de resterende spillere i real-tid om spillet skal fortsætte eller stoppes.* |
+
 ---
 
 ## 🌟 Features
