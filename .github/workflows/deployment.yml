@@ -1,0 +1,27 @@
+name: Production Deployment & Status
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  deployments: write
+
+jobs:
+  deploy-status:
+    name: Track Production Deployment
+    runs-on: ubuntu-latest
+    environment:
+      name: Production
+      url: https://matador-dt9v.onrender.com
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Confirm Deployment
+        run: |
+          echo "Matador Web application successfully tracked for Production environment."
+          echo "Production URL: https://matador-dt9v.onrender.com"
